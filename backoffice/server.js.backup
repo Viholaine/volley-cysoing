@@ -1,0 +1,112 @@
+const express = require('express');
+const cors = require('cors');
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+
+// Importer les routes Supabase
+const supabaseRoutes = require('./supabase_routes');
+
+// Définir l'application Express
+const app = express();
+const PORT = process.env.PORT || 3024;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Logs pour suivre l'exécution
+const logs = [];
+
+function addLog(message, type = 'info') {
+n// Configurer les routes Supabase
+supabaseRoutes(app, addLog);
+  const timestamp = new Date().toISOString();
+n// Configurer les routes Supabase
+supabaseRoutes(app, addLog);
+  logs.push({ timestamp, message, type });
+n// Configurer les routes Supabase
+supabaseRoutes(app, addLog);
+  if (logs.length > 100) logs.shift(); // Garder seulement les 100 derniers logs
+n// Configurer les routes Supabase
+supabaseRoutes(app, addLog);
+  console.log(`[${timestamp}] ${message}`);
+n// Configurer les routes Supabase
+supabaseRoutes(app, addLog);
+}
+n// Configurer les routes Supabase
+supabaseRoutes(app, addLog);
+
+n// Configurer les routes Supabase
+supabaseRoutes(app, addLog);
+// Route pour obtenir les logs
+app.get('/api/logs', (req, res) => {
+  res.json(logs);
+});
+
+// Route pour synchroniser avec Supabase (fallback vers fichiers locaux)
+app.post('/api/load-to-supabase', async (req, res) => {
+  try {
+    addLog('Début de la synchronisation Supabase...', 'info');
+    
+    // Essayer d'abord les routes Supabase
+    try {
+      const response = await fetch('http://localhost:3024/api-supabase/standings', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        addLog(`${data.length} classements récupérés depuis Supabase`, 'success');
+        res.json({ success: true, message: 'Synchronisation réussie', source: 'supabase', data: data });
+        return;
+      }
+    } catch (supabaseError) {
+      addLog(`Routes Supabase non accessibles: ${supabaseError.message}`, 'error');
+    }
+    
+    // Fallback vers fichiers locaux
+    addLog('Fallback vers fichiers locaux...', 'info');
+    
+    const dataDir = path.join(__dirname, '../data');
+    const filePath = path.join(dataDir, 'standings.json');
+    
+    if (fs.existsSync(filePath)) {
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      const standings = JSON.parse(fileContent);
+      
+      // Trier par rang
+      const sortedStandings = standings.sort((a, b) => a.rank - b.rank);
+      
+      addLog(`${sortedStandings.length} classements récupérés depuis fichiers locaux`, 'success');
+      res.json({ success: true, message: 'Synchronisation réussie', source: 'local', data: sortedStandings });
+    } else {
+      addLog('Aucune donnée locale disponible', 'error');
+      res.status(404).json({ success: false, message: 'Aucune donnée disponible' });
+    }
+    
+  } catch (error) {
+    addLog(`Erreur critique synchronisation: ${error.message}`, 'error');
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Route pour effacer les logs
+app.delete('/api/logs', (req, res) => {
+  logs.length = 0; // Vider le tableau de logs
+  addLog('Logs effacés', 'info');
+  res.json({ success: true, message: 'Logs effacés' });
+});
+
+// Route principale pour servir l'interface
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Démarrage du serveur
+app.listen(PORT, () => {
+  addLog(`Serveur backoffice démarré sur http://localhost:${PORT}`, 'info');
+  console.log(`🏐 Backoffice Volleyball démarré sur http://localhost:${PORT}`);
+});
