@@ -2,8 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
 
 // Importer les routes Supabase
 const supabaseRoutes = require('./supabase_routes');
@@ -14,7 +12,7 @@ const PORT = process.env.PORT || 3026;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public'));
 
 // Logs pour suivre l'exécution
 const logs = [];
@@ -34,78 +32,17 @@ app.get('/api/logs', (req, res) => {
   res.json(logs);
 });
 
-// Route pour obtenir les classements spécifiquement
+// Rediriger les anciennes routes vers les nouvelles routes Supabase
 app.get('/api/standings', (req, res) => {
-  try {
-    const dataDir = path.join(__dirname, '../data');
-    const filePath = path.join(dataDir, 'standings.json');
-    
-    if (fs.existsSync(filePath)) {
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      const standings = JSON.parse(fileContent);
-      
-      // Trier par rang
-      const sortedStandings = standings.sort((a, b) => a.rank - b.rank);
-      
-      res.json(sortedStandings);
-    } else {
-      res.json([]);
-    }
-  } catch (error) {
-    addLog(`Erreur lecture classements: ${error.message}`, 'error');
-    res.status(500).json({ error: error.message });
-  }
+  res.redirect(307, '/api-supabase/standings');
 });
 
-// Route pour obtenir les matchs spécifiquement
 app.get('/api/matches', (req, res) => {
-  try {
-    const dataDir = path.join(__dirname, '../data');
-    const filePath = path.join(dataDir, 'matches.json');
-    
-    if (fs.existsSync(filePath)) {
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      const matches = JSON.parse(fileContent);
-      
-      // Trier par date (plus récents d'abord)
-      const sortedMatches = matches.sort((a, b) => {
-        if (a.date && b.date) {
-          return new Date(b.date) - new Date(a.date);
-        }
-        return 0;
-      });
-      
-      res.json(sortedMatches);
-    } else {
-      res.json([]);
-    }
-  } catch (error) {
-    addLog(`Erreur lecture matchs: ${error.message}`, 'error');
-    res.status(500).json({ error: error.message });
-  }
+  res.redirect(307, '/api-supabase/matches');
 });
 
-// Route pour obtenir les équipes spécifiquement
 app.get('/api/teams', (req, res) => {
-  try {
-    const dataDir = path.join(__dirname, '../data');
-    const filePath = path.join(dataDir, 'teams.json');
-    
-    if (fs.existsSync(filePath)) {
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      const teams = JSON.parse(fileContent);
-      
-      // Trier par nom
-      const sortedTeams = teams.sort((a, b) => a.name.localeCompare(b.name));
-      
-      res.json(sortedTeams);
-    } else {
-      res.json([]);
-    }
-  } catch (error) {
-    addLog(`Erreur lecture équipes: ${error.message}`, 'error');
-    res.status(500).json({ error: error.message });
-  }
+  res.redirect(307, '/api-supabase/teams');
 });
 
 // Route pour lancer le scraping
@@ -115,7 +52,7 @@ app.post('/api/scrape', async (req, res) => {
   
   try {
     const pythonProcess = spawn('python', [
-      path.join(__dirname, '../scripts/scraper.py')
+      'scripts/scraper.py'
     ]);
 
     let output = '';
@@ -135,50 +72,11 @@ app.post('/api/scrape', async (req, res) => {
       if (code === 0) {
         addLog('Scraping terminé avec succès', 'success');
         
-        // Enregistrer la date du scraping réussi
-        try {
-          // Compter les données extraites
-          const dataDir = path.join(__dirname, '../data');
-          let teamsCount = 0, matchesCount = 0, standingsCount = 0;
-          
-          try {
-            const teamsData = JSON.parse(fs.readFileSync(path.join(dataDir, 'teams.json'), 'utf8'));
-            teamsCount = teamsData.length;
-          } catch (e) {}
-          
-          try {
-            const matchesData = JSON.parse(fs.readFileSync(path.join(dataDir, 'matches.json'), 'utf8'));
-            matchesCount = matchesData.length;
-          } catch (e) {}
-          
-          try {
-            const standingsData = JSON.parse(fs.readFileSync(path.join(dataDir, 'standings.json'), 'utf8'));
-            standingsCount = standingsData.length;
-          } catch (e) {}
-          
-          const scrapeData = {
-            timestamp: scrapeStartTime,
-            success: true,
-            teams_count: teamsCount,
-            matches_count: matchesCount,
-            standings_count: standingsCount,
-            duration: new Date().toISOString()
-          };
-          
-          fs.writeFileSync(
-            path.join(__dirname, '../data/last_scrape.json'),
-            JSON.stringify(scrapeData, null, 2)
-          );
-          
-          addLog(`Scraping enregistré: ${scrapeStartTime} (${teamsCount} équipes, ${matchesCount} matchs, ${standingsCount} classements)`, 'success');
-        } catch (saveError) {
-          addLog(`Erreur enregistrement scraping: ${saveError.message}`, 'error');
-        }
-        
         res.json({ 
           success: true, 
           message: 'Scraping terminé',
-          output: output 
+          output: output,
+          timestamp: scrapeStartTime
         });
       } else {
         addLog(`Scraping échoué avec le code ${code}`, 'error');
@@ -202,7 +100,7 @@ app.post('/api/load-to-supabase', async (req, res) => {
   
   try {
     const pythonProcess = spawn('python', [
-      path.join(__dirname, '../scripts/final_sync.py')
+      'scripts/final_sync.py'
     ]);
 
     let output = '';
@@ -235,20 +133,15 @@ app.post('/api/load-to-supabase', async (req, res) => {
 });
 
 // Route pour obtenir la date du dernier scraping
-app.get('/api/last-scrape', (req, res) => {
+app.get('/api/last-scrape', async (req, res) => {
   try {
-    const filePath = path.join(__dirname, '../data/last_scrape.json');
-    
-    if (fs.existsSync(filePath)) {
-      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      res.json(data);
-    } else {
-      res.json({ 
-        timestamp: null, 
-        success: false,
-        message: 'Aucun scraping effectué' 
-      });
-    }
+    // Pour l'instant, retourner un message indiquant que cette fonctionnalité nécessite une implémentation alternative
+    // Dans une version serverless, cela pourrait être stocké dans Supabase ou un service de stockage
+    res.json({ 
+      timestamp: null, 
+      success: false,
+      message: 'Fonctionnalité désactivée - utilisez uniquement Supabase' 
+    });
   } catch (error) {
     addLog(`Erreur lecture dernier scraping: ${error.message}`, 'error');
     res.status(500).json({ error: error.message });
@@ -256,25 +149,45 @@ app.get('/api/last-scrape', (req, res) => {
 });
 
 // Route pour vérifier l'état des données
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
   try {
-    const dataDir = path.join(__dirname, '../data');
-    const files = ['teams.json', 'matches.json', 'standings.json', 'matchdays.json'];
+    const { createClient } = require('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.SUPABASE_URL || 'https://your-project.supabase.co',
+      process.env.SUPABASE_SERVICE_KEY || 'your-service-role-key'
+    );
+
     const status = {};
+    const tables = ['teams', 'matches', 'standings', 'matchdays'];
     
-    files.forEach(file => {
-      const filePath = path.join(dataDir, file);
-      if (fs.existsSync(filePath)) {
-        const stats = fs.statSync(filePath);
-        status[file.replace('.json', '')] = {
-          exists: true,
-          size: stats.size,
-          modified: stats.mtime
+    for (const table of tables) {
+      try {
+        const { data, error, count } = await supabase
+          .from(table)
+          .select('*', { count: 'exact', head: true });
+        
+        if (error) {
+          status[table] = { 
+            exists: false, 
+            error: error.message,
+            connected: false 
+          };
+        } else {
+          status[table] = { 
+            exists: true, 
+            count: count || 0,
+            connected: true,
+            last_checked: new Date().toISOString()
+          };
+        }
+      } catch (error) {
+        status[table] = { 
+          exists: false, 
+          error: error.message,
+          connected: false 
         };
-      } else {
-        status[file.replace('.json', '')] = { exists: false };
       }
-    });
+    }
     
     res.json(status);
   } catch (error) {
@@ -292,7 +205,7 @@ app.delete('/api/logs', (req, res) => {
 
 // Route principale pour servir l'interface
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile('public/index.html', { root: __dirname });
 });
 
 // Démarrage du serveur
