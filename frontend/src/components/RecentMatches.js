@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, Trophy, Filter, ChevronDown } from 'lucide-react';
+import apiClient from '../lib/api';
 
 export default function RecentMatches({ teamFilter: initialTeamFilter = 'all' }) {
   const [matches, setMatches] = useState([]);
@@ -71,12 +72,7 @@ export default function RecentMatches({ teamFilter: initialTeamFilter = 'all' })
       setLoading(true);
       setError(null);
       
-      const response = await fetch('http://localhost:3026/api-supabase/matches');
-      if (!response.ok) {
-        throw new Error('Erreur lors du chargement des matchs');
-      }
-      
-      const data = await response.json();
+      const data = await apiClient.getMatches();
       // Trier par date du plus récent au plus ancien
       const sortedData = data.sort((a, b) => {
         const dateA = new Date(a.date);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Clock, RefreshCw } from 'lucide-react';
+import apiClient from '../lib/api';
 
 export default function LastScrapeInfo() {
   const [lastScrape, setLastScrape] = useState(null);
@@ -14,8 +15,7 @@ export default function LastScrapeInfo() {
 
   const fetchLastScrape = async () => {
     try {
-      const response = await fetch('/api/last-scrape');
-      const data = await response.json();
+      const data = await apiClient.getLastScrape();
       setLastScrape(data);
     } catch (error) {
       console.error('Erreur récupération dernier scraping:', error);

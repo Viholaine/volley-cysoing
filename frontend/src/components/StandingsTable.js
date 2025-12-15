@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trophy, TrendingUp, TrendingDown, Calendar, Users, BarChart3, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import apiClient from '../lib/api';
 
 export default function StandingsTable({ onTeamClick }) {
   const [standings, setStandings] = useState([]);
@@ -16,12 +17,7 @@ export default function StandingsTable({ onTeamClick }) {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('http://localhost:3026/api-supabase/standings');
-      if (!response.ok) {
-        throw new Error('Erreur lors du chargement des classements');
-      }
-      
-      const data = await response.json();
+      const data = await apiClient.getStandings();
       setStandings(data);
     } catch (err) {
       setError(err.message);
