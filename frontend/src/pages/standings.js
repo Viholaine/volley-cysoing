@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import StandingsTable from '../components/StandingsTable';
+import apiClient from '../lib/api';
 
 export default function StandingsPage() {
   const [standings, setStandings] = useState([]);
@@ -15,12 +16,7 @@ export default function StandingsPage() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('http://localhost:3026/api-supabase/standings');
-      if (!response.ok) {
-        throw new Error('Erreur lors du chargement des classements');
-      }
-      
-      const data = await response.json();
+    const data = await apiClient.getStandings();
       setStandings(data);
     } catch (err) {
       setError(err.message);

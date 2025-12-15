@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import apiClient from '../lib/api';
 
 export default function Statistics() {
   const [standings, setStandings] = useState([]);
@@ -15,12 +16,7 @@ export default function Statistics() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('http://localhost:3026/api-supabase/standings');
-      if (!response.ok) {
-        throw new Error('Erreur lors du chargement des statistiques');
-      }
-      
-      const data = await response.json();
+      const data = await apiClient.getStandings();
       setStandings(data);
     } catch (err) {
       setError(err.message);
